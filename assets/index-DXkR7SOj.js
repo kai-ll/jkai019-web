@@ -4031,7 +4031,17 @@ void main(){
  color*=mix(vec3(0.333,0.561,0.431),vec3(0.608,0.761,0.643),noise);
  if(uHasMasks>0.5){
   vec4 masks=texture2D(tMasks,vTerrainUv);
-  color=mix(color,ramp(50.0,d),smoothstep(0.35,0.4,masks.b));
+  // Stylized dirt path: broad warm patches plus restrained fine grain.
+  // Reuse the existing noise texture; keep the JKAI017 ramp as the base hue.
+  float dirtBroad=texture2D(tNoises,vTerrainUv*3.0+vec2(0.17,0.31)).r;
+  float dirtFine=texture2D(tNoises,vTerrainUv*32.0+vec2(0.43,0.11)).g;
+  float dirtVariation=(dirtBroad-0.5)*0.24+(dirtFine-0.5)*0.065;
+  vec3 dirtColor=ramp(50.0,d)*clamp(1.0+dirtVariation,0.84,1.16);
+  dirtColor=mix(dirtColor,dirtColor*vec3(1.045,0.992,0.935),clamp(dirtBroad,0.0,1.0)*0.24);
+  // Disturb only the dirt/grass transition; keep road and sand masks intact.
+  float dirtEdgeNoise=(dirtBroad-0.5)*0.075+(dirtFine-0.5)*0.016;
+  float dirtMask=smoothstep(0.32,0.43,masks.b+dirtEdgeNoise);
+  color=mix(color,dirtColor,dirtMask);
   // JKAI017 terrain-road.png is an additional road detail layer, not used by the original CelMaterial.
   // Preserve the original road ramp hue while applying subtle texture luminance only inside the road mask.
   vec3 roadBase=ramp(52.0,d);
